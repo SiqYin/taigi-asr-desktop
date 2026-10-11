@@ -1,0 +1,5 @@
+# CTranslate2 在 Windows/Linux 上走 CUDA 12 所需的執行期函式庫。
+# 由 bootstrap.py 依本機是否有 NVIDIA GPU 決定是否安裝；失敗不致命，
+# sidecar 會自動退回 CPU 模式。
+nvidia-cublas-cu12
+nvidia-cudnn-cu12

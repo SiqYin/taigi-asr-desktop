@@ -1,0 +1,45 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10.15.1"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: 安裝前端依賴
+        run: pnpm install
+      - name: 編譯並發布 Windows 安裝包
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tauriScript: pnpm tauri
+          args: --bundles nsis
+          tagName: ${{ github.ref_name }}
+          releaseName: "台語語音轉錄桌面客戶端 ${{ github.ref_name }}"
+          releaseBody: |
+            ## 台語語音自動轉錄桌面客戶端（Windows x64）
+
+            ### 安裝方式
+            1. 下載下方的 `Taigi ASR_*_x64-setup.exe` 並執行；
+            2. 首次啟動會自動準備本機 Python 環境，並下載 Breeze-ASR-26 台語辨識模型（約 2.9 GB，僅此一次）；
+            3. 拖入台語影片／音訊即可離線轉錄，輸出 SRT / VTT / TXT / JSON。
+
+            ### 系統需求
+            - Windows 10 / 11 x64（WebView2 通常已內建）
+            - 無 NVIDIA GPU 亦可使用（純 CPU 模式）；具 4GB+ 顯存之 NVIDIA GPU 可自動啟用加速
+          releaseDraft: false
+          prerelease: false

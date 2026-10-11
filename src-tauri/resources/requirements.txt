@@ -1,0 +1,13 @@
+# Sidecar 自身依賴 + faster-whisper 主力路徑所需（上游 pyproject 的
+# 非 Gradio / 非 torch 子集）。breeze-asr-taigi 本體由 bootstrap.py
+# 以 --no-deps 安裝固定 commit，避免把 Gradio/torch 拉進桌面運行時。
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+pydantic>=2.7,<3
+faster-whisper>=1.1
+soundfile>=0.12
+pydub>=0.25
+numpy>=1.24
+huggingface-hub>=0.24
+imageio-ffmpeg>=0.5.1
+nvidia-ml-py>=12.535

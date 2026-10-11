@@ -1,0 +1,53 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  sidecar-smoke:
+    name: Python sidecar smoke (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bootstrap venv (skip model download)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m venv .venv
+          ./.venv/Scripts/python.exe src-tauri/resources/bootstrap.py \
+            --base "$RUNNER_TEMP/taigi-base" \
+            --requirements src-tauri/resources/requirements.txt \
+            --gpu-requirements src-tauri/resources/requirements-gpu.txt \
+            --skip-model
+      - name: Byte-compile sidecar
+        shell: bash
+        run: ./.venv/Scripts/python.exe -m compileall -q src-tauri/resources/sidecar
+
+  windows-build:
+    name: Tauri Windows build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10.15.1"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Install frontend dependencies
+        run: pnpm install
+      - name: Build NSIS installer
+        run: pnpm tauri build
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: taigi-asr-desktop-windows
+          path: src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error

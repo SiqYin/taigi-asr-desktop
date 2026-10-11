@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "桌面主窗口權限：對話框、在檔案總管中顯示檔案、事件與窗口拖放。",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "core:window:allow-start-dragging",
+    "dialog:default",
+    "opener:default",
+    "opener:allow-reveal-item-in-dir"
+  ]
+}
