@@ -38,7 +38,7 @@
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "languages": ["English", "TraditionalChinese"]
+        "languages": ["English", "TradChinese"]
       }
     }
   }
