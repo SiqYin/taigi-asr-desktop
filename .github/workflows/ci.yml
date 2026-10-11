@@ -17,6 +17,8 @@ jobs:
           python-version: "3.11"
       - name: Bootstrap venv (skip model download)
         shell: bash
+        env:
+          PYTHONIOENCODING: utf-8
         run: |
           set -euo pipefail
           python -m venv .venv

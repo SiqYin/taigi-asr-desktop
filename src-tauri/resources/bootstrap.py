@@ -20,6 +20,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+# 不論主控台預設字碼（如 Windows Git Bash 的 cp1252）為何，JSON Lines
+# 進度一律以 UTF-8 輸出，避免繁中訊息觸發 UnicodeEncodeError。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 # 與 README 中記錄的上游版本一致；升級需同步更新 SHA。
 BREEZE_COMMIT = "59da766e9156fed409666d15c1879176baac1fa0"
 BREEZE_ARCHIVE = (
