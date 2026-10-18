@@ -130,6 +130,9 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    # 供後續的線上驗證 job 取得實際網址
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -158,10 +161,10 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
         with:
-          # enablement: true 會在 Pages 尚未啟用時，用本工作流的 GITHUB_TOKEN
-          # 自動建立站點（工作流已宣告 pages: write 權限），
-          # 因此不需要任何人手動到 Settings → Pages 開啟。
-          enablement: true
+          # enablement: true 會在 Pages 尚未啟用時嘗試建立站點。
+          # 注意：站點「建立」需要 administration 權限，工作流 token 沒有，
+          # 因此首次仍需以具備該權限的憑證建立（本倉庫已建立完成）。
+          enablement: false
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -171,3 +174,34 @@ jobs:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+
+  # ------------------------------------------------------------------
+  # 3) 部署後驗證：直接打線上正式網址
+  #
+  # 部署成功不等於網站可用 —— CDN 傳播、Service Worker、CSP、
+  # WASM 是否真的能在 Worker 內初始化，都只有實際載入才知道。
+  # ------------------------------------------------------------------
+  verify-deployed:
+    name: Verify deployed site
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10.15.1"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Wait for CDN propagation
+        run: sleep 20
+
+      - name: Verify live site
+        run: node tools/verify-deployed-site.mjs "${{ needs.deploy.outputs.page_url || 'https://siqyin.github.io/taigi-asr-desktop/' }}"
