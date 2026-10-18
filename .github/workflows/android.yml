@@ -67,14 +67,8 @@ jobs:
           chmod +x web/wasm-src/build-wasm.sh scripts/stage-android-assets.sh
           bash web/wasm-src/build-wasm.sh
 
-      - name: Verify WASM output
-        run: |
-          set -euo pipefail
-          test -f web/wasm/main.js
-          test -f web/wasm/main.wasm
-          grep -q "export default" web/wasm/main.js
-          grep -q "PThread" web/wasm/main.js
-          echo "WASM 產物檢查通過（$(du -h web/wasm/main.wasm | cut -f1)）"
+      - name: Verify build guards
+        run: bash scripts/test-wasm-build-guards.sh
 
       - name: Stage web assets into the APK
         run: bash scripts/stage-android-assets.sh

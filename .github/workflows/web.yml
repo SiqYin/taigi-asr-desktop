@@ -58,18 +58,12 @@ jobs:
       - name: Build WASM
         run: |
           chmod +x web/wasm-src/build-wasm.sh
+          # 腳本內含防護：ggml 若退回無 SIMD 的通用實作、產物不是 ES module
+          # 或缺 pthread，都會直接讓建置失敗（避免部署出慢數十倍的版本）。
           bash web/wasm-src/build-wasm.sh
 
-      - name: Verify WASM output
-        run: |
-          set -euo pipefail
-          test -f web/wasm/main.js
-          test -f web/wasm/main.wasm
-          # 必須是 ES module 匯出，Worker 才 import 得到
-          grep -q "export default" web/wasm/main.js
-          # 必須含 pthread 支援，否則會退回單執行緒（慢一個數量級）
-          grep -q "PThread" web/wasm/main.js
-          echo "WASM 產物檢查通過（$(du -h web/wasm/main.wasm | cut -f1)）"
+      - name: Verify build guards
+        run: bash scripts/test-wasm-build-guards.sh
 
       - name: Subtitle format parity
         run: python3 tools/verify-subtitle-parity.py
