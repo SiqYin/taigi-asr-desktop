@@ -231,10 +231,15 @@ android/                 # 安卓 WebView 殼（Gradle）
 scripts/stage-android-assets.sh
 tools/                   # 開發與驗證工具
   serve-web.mjs          # 本機靜態伺服器（模擬 Pages）
+  chrome.mjs             # 跨平台尋找 Chrome / Edge（測試共用）
   e2e-web.mjs            # 三端版面與功能端到端測試
+  e2e-production.mjs     # 正式路徑端到端（拖入檔案→辨識→輸出）
   e2e-inference.mjs      # 真實模型推理端到端測試
+  profile-inference.mjs  # 推理效能剖析
   verify-subtitle-parity.py  # 字幕格式與桌面端逐位元組比對
   verify-wasm-browser.mjs    # WASM 在瀏覽器中的載入與 API 驗證
+  verify-model-cache.mjs     # 模型只下載一次的回歸測試
+  *-worker.js            # 上述測試在瀏覽器 Worker 內執行的輔助腳本
 .github/workflows/
   ci.yml                 # sidecar 冒煙測試 + Windows 構建
   release.yml            # tag 發 Windows Release
@@ -283,10 +288,14 @@ RTF = 處理時間 ÷ 音訊長度，越小越快。實測環境：Chrome 128、
 
 ```bash
 pnpm web:verify                     # 字幕格式與桌面端 Python 逐位元組比對（20 項）
-node tools/verify-wasm-browser.mjs  # WASM 在 Chrome 中載入、embind API 齊全（8 項）
+pnpm web:verify:wasm                # WASM 在瀏覽器中載入、embind API 齊全（8 項）
+pnpm web:verify:cache               # 模型只下載一次、之後走快取（9 項）
 pnpm web:e2e                        # 三端版面 + 功能（37 項）
+pnpm web:e2e:prod                   # 正式路徑：拖入檔案→辨識→輸出字幕
 node tools/e2e-inference.mjs        # 真實模型推理 → 字幕（需先下載模型與測試音訊）
 ```
+
+測試需要本機有 Chrome / Edge；找不到時會提示設定 `CHROME_PATH`。
 
 `tools/e2e-web.mjs` 會量測 7 種視窗尺寸（桌機 1440/1280、平板橫向 1180、
 平板直向 820、手機橫向 844、手機直向 390、小手機 360），確認無水平溢出、
