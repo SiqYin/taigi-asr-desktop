@@ -39,12 +39,18 @@ set(GGML_OPENMP OFF CACHE BOOL "" FORCE)
 # 的通用實作：編得出來、跑得動，但實測慢約 40 倍。這裡在設定階段就直接失敗，
 # 免得產出一個效能崩掉卻看不出來的版本。
 # ---------------------------------------------------------------------------
-if (EMSCRIPTEN AND NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm")
-    message(FATAL_ERROR
-        "CMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}（應為 wasm）。\n"
-        "ggml 會因此退回無 SIMD 的通用實作，效能慢數十倍。\n"
-        "請在 cmake 命令列加上 -DEMSCRIPTEN_SYSTEM_PROCESSOR=wasm；\n"
-        "使用 web/wasm-src/build-wasm.sh 時已自動帶入此參數。")
+if (EMSCRIPTEN)
+    # 注意：CMake 的運算子優先序是 NOT 高於 MATCHES，寫成
+    #   if (NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm")
+    # 會被解析成 ((NOT CMAKE_SYSTEM_PROCESSOR) MATCHES "wasm")，永遠不成立。
+    # 因此用巢狀 if 避免優先序陷阱。
+    if (NOT (CMAKE_SYSTEM_PROCESSOR MATCHES "wasm"))
+        message(FATAL_ERROR
+            "CMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}（應為 wasm）。\n"
+            "ggml 會因此退回無 SIMD 的通用實作，效能慢數十倍。\n"
+            "請在 cmake 命令列加上 -DEMSCRIPTEN_SYSTEM_PROCESSOR=wasm；\n"
+            "使用 web/wasm-src/build-wasm.sh 時已自動帶入此參數。")
+    endif()
 endif()
 
 add_subdirectory(${WHISPER_CPP_DIR} ${CMAKE_BINARY_DIR}/whisper.cpp EXCLUDE_FROM_ALL)

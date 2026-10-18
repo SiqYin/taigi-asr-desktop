@@ -81,8 +81,35 @@ jobs:
           [ "$fail" -eq 0 ]
           echo "JS 語法檢查通過"
 
+      - name: Setup pnpm / Node（供瀏覽器端測試使用）
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.15.1"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Model cache regression
         run: node tools/verify-model-cache.mjs
+
+      - name: WASM loads in a real browser
+        run: node tools/verify-wasm-browser.mjs
+
+      - name: Responsive layout + UI (desktop / tablet / phone)
+        run: node tools/e2e-web.mjs
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-screenshots
+          path: web/screenshots/
+          if-no-files-found: ignore
 
       - name: Upload wasm artifact
         uses: actions/upload-artifact@v4
