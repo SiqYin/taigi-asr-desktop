@@ -12,6 +12,7 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_SCRIPT="${ROOT}/web/wasm-src/build-wasm.sh"
+CMAKE_FILE="${ROOT}/web/wasm-src/CMakeLists.txt"
 TMP="$(mktemp -d)"
 trap 'rm -rf "${TMP}"' EXIT
 
@@ -54,6 +55,25 @@ do
     check "腳本包含檢查：${pattern}" "found" "missing"
   fi
 done
+
+# ---------------------------------------------------------------------------
+# 2b) 必須帶 EMSCRIPTEN_SYSTEM_PROCESSOR=wasm
+#
+# Emscripten toolchain 用「一般變數」把 CMAKE_SYSTEM_PROCESSOR 設成 x86，
+# 一般變數優先於 CACHE 條目，所以只能在命令列用這個參數覆寫。
+# 少了它，ggml 會退回無 SIMD 的通用實作（實測慢約 40 倍）。
+# ---------------------------------------------------------------------------
+if grep -qF -- "-DEMSCRIPTEN_SYSTEM_PROCESSOR=wasm" "${BUILD_SCRIPT}"; then
+  check "build-wasm.sh 帶 EMSCRIPTEN_SYSTEM_PROCESSOR=wasm" "found" "found"
+else
+  check "build-wasm.sh 帶 EMSCRIPTEN_SYSTEM_PROCESSOR=wasm" "found" "missing"
+fi
+
+if grep -qF "EMSCRIPTEN_SYSTEM_PROCESSOR" "${CMAKE_FILE}"; then
+  check "CMakeLists 有對應的說明或檢查" "found" "found"
+else
+  check "CMakeLists 有對應的說明或檢查" "found" "missing"
+fi
 
 # ---------------------------------------------------------------------------
 # 3) 用假 log 驗證判定邏輯（重現腳本中的條件）

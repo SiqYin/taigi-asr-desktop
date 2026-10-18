@@ -54,8 +54,21 @@ fi
 echo "==> 設定 CMake（emcmake）"
 CONFIGURE_LOG="${BUILD_ROOT}/configure.log"
 mkdir -p "${BUILD_ROOT}"
+
+# EMSCRIPTEN_SYSTEM_PROCESSOR=wasm 是關鍵參數。
+#
+# Emscripten 的 toolchain 刻意把 CMAKE_SYSTEM_PROCESSOR 設成 x86（註解寫明是
+# 為了讓部分專案以為是 32 位元平台），而且是用「一般變數」設定：
+#     set(CMAKE_SYSTEM_PROCESSOR ${EMSCRIPTEN_SYSTEM_PROCESSOR})
+# 一般變數會優先於 CACHE 條目，所以用 set(... CACHE ... FORCE) 覆寫是無效的。
+# ggml 因此落入 else() 分支、加上 -DGGML_CPU_GENERIC，改用無 SIMD 的通用
+# 實作 —— 編得出來、跑得動，但實測慢約 40 倍。
+#
+# 上游 toolchain 自己註明可用 -DEMSCRIPTEN_SYSTEM_PROCESSOR=<arch> 覆寫，
+# 這裡就是採用這個官方途徑。
 if ! emcmake cmake -S "${HERE}" -B "${BUILD_DIR}" \
   -DCMAKE_BUILD_TYPE=Release \
+  -DEMSCRIPTEN_SYSTEM_PROCESSOR=wasm \
   -DWHISPER_CPP_DIR="${SRC_DIR}" 2>&1 | tee "${CONFIGURE_LOG}"; then
   fail "CMake 設定失敗，完整輸出見 ${CONFIGURE_LOG}"
 fi

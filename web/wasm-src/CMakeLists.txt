@@ -23,12 +23,29 @@ set(WHISPER_BUILD_SERVER OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(GGML_OPENMP OFF CACHE BOOL "" FORCE)
 
-# 關鍵：ggml 以 CMAKE_SYSTEM_PROCESSOR 判斷是否走 wasm 最佳化分支
-# （ggml-cpu/CMakeLists.txt: elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "wasm")）。
-# 在 Windows 主機上用 emcmake 時，這個值可能被探測成 x86，導致 ggml 落入
-# else() 分支、加上 -DGGML_CPU_GENERIC 退回無 SIMD 的通用實作——
-# 實測會慢上百倍。因此這裡強制覆寫成 wasm。
-set(CMAKE_SYSTEM_PROCESSOR "wasm" CACHE STRING "" FORCE)
+# ---------------------------------------------------------------------------
+# ggml 架構偵測的陷阱（重要）
+#
+# ggml 用 CMAKE_SYSTEM_PROCESSOR 判斷是否走 wasm 最佳化分支：
+#     elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "wasm")   # ggml-cpu/CMakeLists.txt
+# 但 Emscripten 的 toolchain 刻意把它設成 x86（註解說明是為了讓部分專案以為
+# 是 32 位元平台），而且是用「一般變數」設定：
+#     set(CMAKE_SYSTEM_PROCESSOR ${EMSCRIPTEN_SYSTEM_PROCESSOR})
+# 一般變數優先於 CACHE 條目，因此 set(... CACHE STRING "" FORCE) 無法覆寫，
+# 必須從 toolchain 認可的入口 -DEMSCRIPTEN_SYSTEM_PROCESSOR=wasm 設定
+# （web/wasm-src/build-wasm.sh 已自動帶入）。
+#
+# 若沒設好，ggml 會落入 else() 分支並加上 -DGGML_CPU_GENERIC，改用無 SIMD
+# 的通用實作：編得出來、跑得動，但實測慢約 40 倍。這裡在設定階段就直接失敗，
+# 免得產出一個效能崩掉卻看不出來的版本。
+# ---------------------------------------------------------------------------
+if (EMSCRIPTEN AND NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm")
+    message(FATAL_ERROR
+        "CMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}（應為 wasm）。\n"
+        "ggml 會因此退回無 SIMD 的通用實作，效能慢數十倍。\n"
+        "請在 cmake 命令列加上 -DEMSCRIPTEN_SYSTEM_PROCESSOR=wasm；\n"
+        "使用 web/wasm-src/build-wasm.sh 時已自動帶入此參數。")
+endif()
 
 add_subdirectory(${WHISPER_CPP_DIR} ${CMAKE_BINARY_DIR}/whisper.cpp EXCLUDE_FROM_ALL)
 
