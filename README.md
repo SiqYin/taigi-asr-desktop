@@ -239,6 +239,7 @@ tools/                   # 開發與驗證工具
   verify-subtitle-parity.py  # 字幕格式與桌面端逐位元組比對
   verify-wasm-browser.mjs    # WASM 在瀏覽器中的載入與 API 驗證
   verify-model-cache.mjs     # 模型只下載一次的回歸測試
+  verify-deployed-site.mjs   # 線上正式網址的部署驗證
   *-worker.js            # 上述測試在瀏覽器 Worker 內執行的輔助腳本
 .github/workflows/
   ci.yml                 # sidecar 冒煙測試 + Windows 構建
@@ -292,10 +293,20 @@ pnpm web:verify:wasm                # WASM 在瀏覽器中載入、embind API �
 pnpm web:verify:cache               # 模型只下載一次、之後走快取（9 項）
 pnpm web:e2e                        # 三端版面 + 功能（37 項）
 pnpm web:e2e:prod                   # 正式路徑：拖入檔案→辨識→輸出字幕
+node tools/verify-deployed-site.mjs # 打線上正式網址驗證部署結果（14 項）
 node tools/e2e-inference.mjs        # 真實模型推理 → 字幕（需先下載模型與測試音訊）
 ```
 
 測試需要本機有 Chrome / Edge；找不到時會提示設定 `CHROME_PATH`。
+
+`tools/verify-deployed-site.mjs` 直接驗證已部署的
+<https://siqyin.github.io/taigi-asr-desktop/>：跨域隔離是否生效、
+WASM 能否在**應用自己的 Worker** 中初始化、三端版面是否無溢出。
+
+> 注意：驗證 WASM 必須走 Worker 路徑。頁面帶有 CSP
+> （`script-src 'self' 'wasm-unsafe-eval'`），Emscripten 的 glue 在主執行緒
+> 會用到 `new Function` 而被擋下；正式版本是在 Worker 內載入，Worker 有
+> 獨立的 CSP 環境。若在主執行緒直接 `import()`，測到的不是使用者的實際情況。
 
 `tools/e2e-web.mjs` 會量測 7 種視窗尺寸（桌機 1440/1280、平板橫向 1180、
 平板直向 820、手機橫向 844、手機直向 390、小手機 360），確認無水平溢出、

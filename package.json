@@ -16,6 +16,7 @@
     "web:verify": "python tools/verify-subtitle-parity.py",
     "web:verify:wasm": "node tools/verify-wasm-browser.mjs",
     "web:verify:cache": "node tools/verify-model-cache.mjs",
+    "web:verify:deployed": "node tools/verify-deployed-site.mjs",
     "android:stage": "bash scripts/stage-android-assets.sh",
     "clean": "bash scripts/clean-local-artifacts.sh"
   },
