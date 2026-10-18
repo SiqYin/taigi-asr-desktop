@@ -40,15 +40,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cache whisper.cpp source + wasm build
+      - name: Cache whisper.cpp source
         uses: actions/cache@v4
         with:
+          # 只快取原始碼。build 目錄不快取：emsdk 每次安裝在臨時路徑，
+          # 舊的 CMakeSystem.cmake 會記住上次的 toolchain 路徑而導致 configure 失敗。
           path: |
             .cache/whisper-wasm/whisper.cpp
-            .cache/whisper-wasm/build
-          key: wasm-${{ env.WHISPER_CPP_TAG }}-${{ hashFiles('web/wasm-src/**') }}
+          key: whisper-src-${{ env.WHISPER_CPP_TAG }}-${{ hashFiles('web/wasm-src/**') }}
           restore-keys: |
-            wasm-${{ env.WHISPER_CPP_TAG }}-
+            whisper-src-${{ env.WHISPER_CPP_TAG }}-
 
       - name: Setup emsdk
         uses: emscripten-core/setup-emsdk@v14

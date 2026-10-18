@@ -55,6 +55,15 @@ echo "==> 設定 CMake（emcmake）"
 CONFIGURE_LOG="${BUILD_ROOT}/configure.log"
 mkdir -p "${BUILD_ROOT}"
 
+# 每次都從乾淨的 build 目錄開始。
+# 原因：setup-emsdk 把工具鏈裝在「每次執行都不同」的臨時路徑，若重用舊的
+# build 目錄（例如從 CI 快取還原），CMakeFiles/<ver>/CMakeSystem.cmake 會
+# 指向上一次的 toolchain 絕對路徑，configure 直接失敗：
+#   CMake Error at CMakeFiles/3.31.6/CMakeSystem.cmake:6 (include)
+#   CMake Error at CMakeLists.txt:10 (project)
+# 因此快取只保留 whisper.cpp 原始碼，不保留 build 目錄。
+rm -rf "${BUILD_DIR}"
+
 # EMSCRIPTEN_SYSTEM_PROCESSOR=wasm 是關鍵參數。
 #
 # Emscripten 的 toolchain 刻意把 CMAKE_SYSTEM_PROCESSOR 設成 x86（註解寫明是

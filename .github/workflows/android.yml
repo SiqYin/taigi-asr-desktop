@@ -21,6 +21,15 @@ permissions:
 
 env:
   WHISPER_CPP_TAG: v1.9.5
+  # ubuntu-22.04 runner 已預裝 Android SDK（含 cmdline-tools 與多個 platform）。
+  # 不使用 android-actions/setup-android：它會呼叫 sdkmanager，而預裝的
+  # cmdline-tools 版本與該 action 期望的不符，實測失敗於：
+  #   Wrong version in preinstalled sdkmanager
+  #   Warning: Failed to find package 'tools'
+  #   Error: The process 'sdkmanager' failed with exit code 1
+  # 直接指定路徑給 Gradle 最穩定。
+  ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+  ANDROID_HOME: /usr/local/lib/android/sdk
 
 # release.yml 與本工作流都會寫入同一個 Release，序列化避免競態。
 concurrency:
@@ -34,30 +43,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 順序很重要：setup-android 會執行 `sdkmanager --licenses`，
-      # 而 sdkmanager 要求 JDK 17+。runner 預設 JDK 是 11，
-      # 若先跑 setup-android 會失敗在「This tool requires JDK 17 or later」。
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      # 確認預裝 SDK 可用（比 setup-android 可靠，失敗時訊息也清楚）
+      - name: Verify Android SDK
+        run: |
+          set -euo pipefail
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}"
+          test -d "${ANDROID_SDK_ROOT}" || { echo "找不到 Android SDK 目錄" >&2; exit 1; }
+          ls "${ANDROID_SDK_ROOT}"
+          echo "--- platforms ---"
+          ls "${ANDROID_SDK_ROOT}/platforms" 2>/dev/null || echo "(無 platforms 目錄)"
 
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
 
-      - name: Cache whisper.cpp source + wasm build
+      - name: Cache whisper.cpp source
         uses: actions/cache@v4
         with:
+          # 只快取原始碼。build 目錄不快取：emsdk 每次安裝在臨時路徑，
+          # 舊的 CMakeSystem.cmake 會記住上次的 toolchain 路徑而導致 configure 失敗。
           path: |
             .cache/whisper-wasm/whisper.cpp
-            .cache/whisper-wasm/build
-          key: wasm-${{ env.WHISPER_CPP_TAG }}-${{ hashFiles('web/wasm-src/**') }}
+          key: whisper-src-${{ env.WHISPER_CPP_TAG }}-${{ hashFiles('web/wasm-src/**') }}
           restore-keys: |
-            wasm-${{ env.WHISPER_CPP_TAG }}-
+            whisper-src-${{ env.WHISPER_CPP_TAG }}-
 
       - name: Setup emsdk
         uses: emscripten-core/setup-emsdk@v14
