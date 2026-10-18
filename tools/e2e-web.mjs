@@ -15,18 +15,11 @@ import { readFile, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { extname, join, normalize, resolve } from "node:path";
 import puppeteer from "puppeteer-core";
+import { requireBrowser } from "./chrome.mjs";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const WEB = join(ROOT, "web");
 const PORT = 4319;
-
-const CHROME_CANDIDATES = [
-  "C:/Program Files/Google/Chrome/Application/chrome.exe",
-  "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
-  `${process.env.LOCALAPPDATA}/Google/Chrome/Application/chrome.exe`,
-  "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
-  "C:/Program Files/Microsoft/Edge/Application/msedge.exe",
-];
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -40,13 +33,6 @@ const MIME = {
   ".vtt": "text/vtt; charset=utf-8",
   ".svg": "image/svg+xml",
 };
-
-function findChrome() {
-  for (const path of CHROME_CANDIDATES) {
-    if (path && existsSync(path)) return path;
-  }
-  return null;
-}
 
 function startServer() {
   const server = createServer(async (req, res) => {
@@ -94,7 +80,7 @@ function check(name, ok, detail = "") {
 }
 
 async function main() {
-  const chrome = findChrome();
+  const chrome = requireBrowser();
   if (!chrome) {
     console.error("找不到 Chrome / Edge，無法執行端到端驗證");
     process.exit(2);

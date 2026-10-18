@@ -2,9 +2,14 @@ name: android
 
 # 安卓版：把網頁版 + WASM 打包成 WebView 殼 APK。
 #
-# 觸發：發版 tag、手動、或 main 分支推送。
-# 刻意不在 on.push 裡寫 paths —— 一旦寫了，對「打 tag」的推送也會套用
-# 該過濾，發版時可能被跳過。改由 job 內的 gate 步驟判斷是否需要建置。
+# 觸發：
+#   - push tag v*  ：發版，建置後把 APK 附加到該 Release
+#   - push main    ：建置驗證，APK 只作為 workflow artifact 保留
+#   - 手動觸發
+#
+# 刻意不在 on.push 裡寫 paths —— GitHub Actions 一旦寫了 paths，
+# 對「打 tag」的推送也會套用該過濾，發版時可能被跳過。
+# WASM 編譯有快取，重複建置成本可接受。
 on:
   push:
     tags: ["v*"]
@@ -28,44 +33,21 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # gate 需要 git 歷史判斷變更檔案
 
-      # main 分支推送時，若本次提交沒有動到 android/ 或 web/ 就不必重建 APK；
-      # 打 tag 或手動觸發時一律建置（要上傳到 Release）。
-      - name: Decide whether to build
-        id: gate
-        run: |
-          set -euo pipefail
-          if [ "${{ github.event_name }}" != "push" ] || [ "${{ github.ref_type }}" = "tag" ]; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-            echo "→ 非 main 分支推送（tag 或手動），執行建置"
-            exit 0
-          fi
-          FILES=$(git diff-tree --no-commit-id --name-only -r "${{ github.sha }}" || true)
-          echo "本次提交變更檔案："
-          echo "$FILES"
-          if echo "$FILES" | grep -Eq '^(android/|web/|scripts/stage-android-assets\.sh|\.github/workflows/android\.yml)'; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-            echo "→ 動到 android/web，執行建置"
-          else
-            echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "→ 與 android/web 無關，跳過建置"
-          fi
+      # ubuntu-22.04 runner 預設沒有 Android SDK，必須先安裝。
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
       - uses: actions/setup-java@v4
-        if: steps.gate.outputs.run == 'true'
         with:
           distribution: temurin
           java-version: "17"
 
       - uses: gradle/actions/setup-gradle@v4
-        if: steps.gate.outputs.run == 'true'
         with:
           gradle-version: "8.9"
 
-      - name: Cache whisper.cpp wasm build
-        if: steps.gate.outputs.run == 'true'
+      - name: Cache whisper.cpp source + wasm build
         uses: actions/cache@v4
         with:
           path: |
@@ -76,23 +58,28 @@ jobs:
             wasm-${{ env.WHISPER_CPP_TAG }}-
 
       - name: Setup emsdk
-        if: steps.gate.outputs.run == 'true'
         uses: emscripten-core/setup-emsdk@v14
         with:
           version: latest
 
       - name: Build whisper.cpp WASM
-        if: steps.gate.outputs.run == 'true'
         run: |
           chmod +x web/wasm-src/build-wasm.sh scripts/stage-android-assets.sh
           bash web/wasm-src/build-wasm.sh
 
+      - name: Verify WASM output
+        run: |
+          set -euo pipefail
+          test -f web/wasm/main.js
+          test -f web/wasm/main.wasm
+          grep -q "export default" web/wasm/main.js
+          grep -q "PThread" web/wasm/main.js
+          echo "WASM 產物檢查通過（$(du -h web/wasm/main.wasm | cut -f1)）"
+
       - name: Stage web assets into the APK
-        if: steps.gate.outputs.run == 'true'
         run: bash scripts/stage-android-assets.sh
 
       - name: Build release APK
-        if: steps.gate.outputs.run == 'true'
         working-directory: android
         env:
           ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
@@ -102,7 +89,6 @@ jobs:
         run: gradle assembleRelease --no-daemon
 
       - name: Rename artifact
-        if: steps.gate.outputs.run == 'true'
         run: |
           set -euo pipefail
           VERSION="${GITHUB_REF_NAME#v}"
@@ -115,7 +101,6 @@ jobs:
           ls -lh TaigiASR-*-android.apk
 
       - name: Upload workflow artifact
-        if: steps.gate.outputs.run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
@@ -123,7 +108,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload to release
-        if: steps.gate.outputs.run == 'true' && startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: TaigiASR-*-android.apk

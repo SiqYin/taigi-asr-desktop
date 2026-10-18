@@ -74,6 +74,22 @@ jobs:
       - name: Subtitle format parity
         run: python3 tools/verify-subtitle-parity.py
 
+      - name: Lint web + tools JavaScript
+        run: |
+          set -euo pipefail
+          fail=0
+          for f in $(find web tools -name '*.js' -o -name '*.mjs'); do
+            if ! node --check "$f"; then
+              echo "語法錯誤：$f"
+              fail=1
+            fi
+          done
+          [ "$fail" -eq 0 ]
+          echo "JS 語法檢查通過"
+
+      - name: Model cache regression
+        run: node tools/verify-model-cache.mjs
+
       - name: Upload wasm artifact
         uses: actions/upload-artifact@v4
         with:

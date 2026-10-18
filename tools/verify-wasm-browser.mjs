@@ -13,17 +13,11 @@ import { readFile, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { extname, join, normalize, resolve } from "node:path";
 import puppeteer from "puppeteer-core";
+import { requireBrowser } from "./chrome.mjs";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const WEB = join(ROOT, "web");
 const PORT = 4325;
-
-const CHROME_CANDIDATES = [
-  "C:/Program Files/Google/Chrome/Application/chrome.exe",
-  "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
-  `${process.env.LOCALAPPDATA}/Google/Chrome/Application/chrome.exe`,
-  "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
-];
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -34,11 +28,6 @@ const MIME = {
   ".png": "image/png",
   ".wasm": "application/wasm",
 };
-
-function findChrome() {
-  for (const p of CHROME_CANDIDATES) if (p && existsSync(p)) return p;
-  return null;
-}
 
 // tools/ 下的探針 Worker 也要能存取，因此 /__probe/ 映射到 tools/
 const server = createServer(async (req, res) => {
@@ -69,7 +58,7 @@ const server = createServer(async (req, res) => {
 });
 await new Promise((ok) => server.listen(PORT, "127.0.0.1", ok));
 
-const chrome = findChrome();
+const chrome = requireBrowser();
 if (!chrome) {
   console.error("找不到 Chrome / Edge");
   process.exit(2);

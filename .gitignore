@@ -29,5 +29,10 @@ android/local.properties
 android/app/src/main/assets/www/
 android/app/release.keystore
 
+# 安卓圖示由 scripts/stage-android-assets.sh 從 src-tauri/icons/ 產生，
+# 不納入版控（避免同一份圖檔維護兩處）。
+android/app/src/main/res/mipmap-*/
+android/app/src/main/res/values/ic_launcher_background.xml
+
 # 測試產物
 tools/output/

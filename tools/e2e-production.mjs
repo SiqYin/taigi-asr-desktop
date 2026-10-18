@@ -12,6 +12,7 @@ import { readFile, stat } from "node:fs/promises";
 import { existsSync, createReadStream } from "node:fs";
 import { extname, join, normalize, resolve } from "node:path";
 import puppeteer from "puppeteer-core";
+import { requireBrowser } from "./chrome.mjs";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const WEB = join(ROOT, "web");
@@ -71,7 +72,7 @@ function check(name, ok, detail = "") {
 }
 
 const browser = await puppeteer.launch({
-  executablePath: "C:/Program Files/Google/Chrome/Application/chrome.exe",
+  executablePath: requireBrowser(),
   headless: true,
   protocolTimeout: 40 * 60 * 1000,
   args: ["--no-sandbox", "--disable-dev-shm-usage", "--enable-features=SharedArrayBuffer"],

@@ -15,6 +15,7 @@
     "web:wasm": "bash web/wasm-src/build-wasm.sh",
     "web:verify": "python tools/verify-subtitle-parity.py",
     "web:verify:wasm": "node tools/verify-wasm-browser.mjs",
+    "web:verify:cache": "node tools/verify-model-cache.mjs",
     "android:stage": "bash scripts/stage-android-assets.sh",
     "clean": "bash scripts/clean-local-artifacts.sh"
   },
