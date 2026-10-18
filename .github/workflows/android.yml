@@ -1,23 +1,18 @@
 name: android
 
-# 安卓版：把網頁版 + WASM 打包成 WebView 殼 APK。
+# 安卓版：把網頁版 + WASM 打包成 WebView 殼 APK（建置驗證）。
 #
-# 觸發：
-#   - push tag v*  ：發版，建置後把 APK 附加到該 Release
-#   - push main    ：建置驗證，APK 只作為 workflow artifact 保留
-#   - 手動觸發
-#
-# 刻意不在 on.push 裡寫 paths —— GitHub Actions 一旦寫了 paths，
-# 對「打 tag」的推送也會套用該過濾，發版時可能被跳過。
-# WASM 編譯有快取，重複建置成本可接受。
+# 這裡只負責 main 分支的建置驗證，APK 以 workflow artifact 保留。
+# 發版（tag v*）時的 APK 由 release.yml 的 release-android job 負責 ——
+# 讓 Release 只有一個擁有者，避免兩個工作流併發建立／更新同一個 Release
+# 而失敗（Resource not accessible by integration）。
 on:
   push:
-    tags: ["v*"]
     branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   WHISPER_CPP_TAG: v1.9.5
@@ -101,8 +96,7 @@ jobs:
       - name: Rename artifact
         run: |
           set -euo pipefail
-          VERSION="${GITHUB_REF_NAME#v}"
-          if [ "${GITHUB_REF_TYPE}" != "tag" ]; then VERSION="dev-${GITHUB_RUN_NUMBER}"; fi
+          VERSION="dev-${GITHUB_RUN_NUMBER}"
           SRC=android/app/build/outputs/apk/release/app-release.apk
           if [ ! -f "$SRC" ]; then
             SRC=android/app/build/outputs/apk/release/app-release-unsigned.apk
@@ -117,8 +111,4 @@ jobs:
           path: TaigiASR-*-android.apk
           if-no-files-found: error
 
-      - name: Upload to release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: TaigiASR-*-android.apk
+

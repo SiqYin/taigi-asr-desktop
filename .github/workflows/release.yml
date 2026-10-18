@@ -7,6 +7,16 @@ on:
 permissions:
   contents: write
 
+# 由本工作流獨占 Release：Windows 與 Android 兩個 job 都寫入同一個 Release，
+# 但 android job 依賴 windows job 先建立 Release，因此不會有兩個工作流
+# 併發建立／更新同一個 Release 的競態。
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  WHISPER_CPP_TAG: v1.9.5
+
 jobs:
   release-windows:
     runs-on: windows-latest
@@ -83,3 +93,95 @@ jobs:
             - **網頁版**：Chrome / Edge / Safari 任一現代瀏覽器
           releaseDraft: false
           prerelease: false
+
+  # ------------------------------------------------------------------
+  # 安卓 APK
+  #
+  # 併入本工作流而非獨立觸發，是為了讓 Release 只有一個擁有者：
+  # 先前 android.yml 也在 tag 上觸發，兩個工作流併發建立／更新同一個
+  # Release，造成
+  #   Resource not accessible by integration ... #update-a-release
+  # 的失敗。改成 needs: release-windows 之後，Release 必定已存在，
+  # 這裡只負責附加檔案。
+  # ------------------------------------------------------------------
+  release-android:
+    name: Build Android APK
+    needs: release-windows
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # runner 已預裝 Android SDK；不用 android-actions/setup-android
+      # （其期望的 cmdline-tools 版本與預裝不符，實測會失敗）。
+      - name: Verify Android SDK
+        env:
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+        run: |
+          set -euo pipefail
+          test -d "${ANDROID_SDK_ROOT}"
+          ls "${ANDROID_SDK_ROOT}/platforms" 2>/dev/null || true
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Cache whisper.cpp source
+        uses: actions/cache@v4
+        with:
+          path: .cache/whisper-wasm/whisper.cpp
+          key: whisper-src-${{ env.WHISPER_CPP_TAG }}-${{ hashFiles('web/wasm-src/**') }}
+          restore-keys: |
+            whisper-src-${{ env.WHISPER_CPP_TAG }}-
+
+      - name: Setup emsdk
+        uses: emscripten-core/setup-emsdk@v14
+        with:
+          version: latest
+
+      - name: Build whisper.cpp WASM
+        run: |
+          chmod +x web/wasm-src/build-wasm.sh scripts/stage-android-assets.sh
+          bash web/wasm-src/build-wasm.sh
+
+      - name: Stage web assets into the APK
+        run: bash scripts/stage-android-assets.sh
+
+      - name: Build release APK
+        working-directory: android
+        env:
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+          ANDROID_HOME: /usr/local/lib/android/sdk
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: gradle assembleRelease --no-daemon
+
+      - name: Rename artifact
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          SRC=android/app/build/outputs/apk/release/app-release.apk
+          if [ ! -f "$SRC" ]; then
+            SRC=android/app/build/outputs/apk/release/app-release-unsigned.apk
+          fi
+          cp "$SRC" "TaigiASR-${VERSION}-android.apk"
+          ls -lh TaigiASR-*-android.apk
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: TaigiASR-*-android.apk
+          if-no-files-found: error
+
+      - name: Attach APK to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: TaigiASR-*-android.apk
