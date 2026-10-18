@@ -156,6 +156,11 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          # enablement: true 會在 Pages 尚未啟用時，用本工作流的 GITHUB_TOKEN
+          # 自動建立站點（工作流已宣告 pages: write 權限），
+          # 因此不需要任何人手動到 Settings → Pages 開啟。
+          enablement: true
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

@@ -34,14 +34,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ubuntu-22.04 runner 預設沒有 Android SDK，必須先安裝。
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
+      # 順序很重要：setup-android 會執行 `sdkmanager --licenses`，
+      # 而 sdkmanager 要求 JDK 17+。runner 預設 JDK 是 11，
+      # 若先跑 setup-android 會失敗在「This tool requires JDK 17 or later」。
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
       - uses: gradle/actions/setup-gradle@v4
         with:
