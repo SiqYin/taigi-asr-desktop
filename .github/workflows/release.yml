@@ -181,7 +181,15 @@ jobs:
           if-no-files-found: error
 
       - name: Attach APK to release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          files: TaigiASR-*-android.apk
+        # 用 gh CLI 而非 softprops/action-gh-release：
+        # 後者在這裡會以完整 ref（refs/tags/vX.Y.Z）查詢 release 而失敗：
+        #   Resource not accessible by integration ... #update-a-release
+        # 即使工作流 token 已具備 Contents: write（日誌可見）仍如此。
+        # gh release upload 直接以 tag 名稱操作，行為明確。
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release upload "${GITHUB_REF_NAME}" TaigiASR-*-android.apk --clobber
+          echo "--- Release 现有檔案 ---"
+          gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[] | "\(.name)  \(.size) bytes"'

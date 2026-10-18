@@ -178,8 +178,21 @@
               <li>所有推理都在你的裝置上完成，檔案不會上傳到任何伺服器。</li>
               <li>建議使用 Chrome / Edge 桌機版；程式會自動啟用多執行緒加速。</li>
               <li>手機與平板可用，但 850 MB 記憶體佔用較高，長檔建議在電腦上處理。</li>
+              <li>
+                與桌面版用同一顆 Breeze-ASR-26 模型，但瀏覽器無法使用原生 AVX 指令集，
+                速度約慢 40 倍；長影片請改用
+                <a
+                  href="https://github.com/SiqYin/taigi-asr-desktop/releases"
+                  target="_blank"
+                  rel="noopener"
+                  >桌面版</a
+                >。
+              </li>
             </ol>
             <div class="info-foot muted" id="capability-note"></div>
+            <div class="info-foot muted">
+              版本 v1.1.0 · 網頁版／安卓版／桌面版共用同一套字幕格式（SRT / VTT / TXT / JSON）
+            </div>
           </section>
         </aside>
       </main>
