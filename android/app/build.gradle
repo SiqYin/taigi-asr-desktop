@@ -1,0 +1,83 @@
+// 台語語音轉錄 · 安卓版（WebView 殼）
+//
+// 用 AGP 8.x 的 plugins DSL；版本集中在 settings.gradle 管理。
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'ai.taigi.asrweb'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "ai.taigi.asrweb"
+        minSdk 24          // WebViewAssetLoader / 現代 WebAssembly 需要 API 24+
+        targetSdk 34
+        versionCode 2
+        versionName "1.1.0"
+        // 只保留常見 ABI 的資源，減少 APK 體積（本 App 不含原生程式庫）
+        resourceConfigurations += ["zh", "zh-rTW", "zh-rCN", "en"]
+    }
+
+    signingConfigs {
+        release {
+            // CI 以 secrets 提供 keystore；本機建置時若沒有環境變數則輸出未簽章 APK。
+            def ksB64 = System.getenv("ANDROID_KEYSTORE_B64")
+            if (ksB64) {
+                def ksFile = new File(buildDir, "release.keystore")
+                ksFile.parentFile.mkdirs()
+                ksFile.bytes = ksB64.decodeBase64()
+                storeFile ksFile
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+            if (signingConfigs.release.storeFile != null) {
+                signingConfig signingConfigs.release
+            }
+        }
+        debug {
+            applicationIdSuffix ".debug"
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packagingOptions {
+        resources {
+            excludes += ["META-INF/**"]
+        }
+    }
+
+    // 資產（web/ + wasm/）由 CI 或 scripts/stage-android-assets.sh 放進
+    // app/src/main/assets/www/，Gradle 只負責打包。
+    sourceSets {
+        main {
+            assets.srcDirs = ['src/main/assets']
+        }
+    }
+
+    lint {
+        abortOnError false
+    }
+}
+
+dependencies {
+    // WebViewAssetLoader：以 https://appassets.androidplatform.net/ 提供資產，
+    // 讓 Service Worker（COOP/COEP）與 SharedArrayBuffer 可用。
+    implementation 'androidx.webkit:webkit:1.11.0'
+}

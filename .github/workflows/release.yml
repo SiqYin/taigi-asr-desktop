@@ -29,17 +29,57 @@ jobs:
           tauriScript: pnpm tauri
           args: --bundles nsis
           tagName: ${{ github.ref_name }}
-          releaseName: "台語語音轉錄桌面客戶端 ${{ github.ref_name }}"
+          releaseName: "台語語音轉錄 ${{ github.ref_name }}"
           releaseBody: |
-            ## 台語語音自動轉錄桌面客戶端（Windows x64）
+            ## 台語語音自動轉錄 · 桌面版（Windows）· 安卓版 · 網頁版
 
-            ### 安裝方式
-            1. 下載下方的 `Taigi ASR_*_x64-setup.exe` 並執行；
-            2. 首次啟動會自動準備本機 Python 環境，並下載 Breeze-ASR-26 台語辨識模型（約 2.9 GB，僅此一次）；
-            3. 拖入台語影片／音訊即可離線轉錄，輸出 SRT / VTT / TXT / JSON。
+            同一個 Breeze-ASR-26 台語模型，三種使用方式，輸出格式完全一致
+            （SRT / VTT / TXT / JSON，已用自動化測試驗證逐位元組相同）。
+
+            ---
+
+            ### 1. 桌面版（Windows x64）— **推薦，最快**
+
+            下載 `Taigi ASR_*_x64-setup.exe` 並執行。
+
+            - 首次啟動會自動準備本機 Python 環境，並下載模型（約 2.9 GB，僅此一次）
+            - 拖入台語影片／音訊即可離線轉錄
+            - 有 NVIDIA GPU 時自動 CUDA 加速（4GB+ 顯存）；無 GPU 亦可純 CPU 執行
+            - **速度：約 0.2–1.0 倍即時**（1 小時影片約 12–60 分鐘）
+
+            ### 2. 安卓版（Android 7.0+）
+
+            下載 `TaigiASR-*-android.apk` 並安裝（需允許「安裝未知來源應用」）。
+
+            - 完全離線運算，檔案不上傳
+            - 字幕自動存入系統「下載」資料夾
+            - **速度：約 9–19 倍即時**，適合短音檔（1–3 分鐘）
+
+            ### 3. 網頁版（免安裝，任何裝置）
+
+            **<https://siqyin.github.io/taigi-asr-desktop/>**
+
+            - 開啟網址即用，模型下載一次後存在瀏覽器快取
+            - 全程在瀏覽器內推理，不上傳任何檔案
+            - 桌機／手機／平板（含橫向）都已調校版面
+            - **速度與安卓版相同（約 9–19 倍即時）**，定位是臨時、輕量、隱私優先的場景
+
+            ---
+
+            ### 三種版本怎麼選
+
+            | 情境 | 建議 |
+            | --- | --- |
+            | 長影片、批次處理、日常使用 | **桌面版** |
+            | 手機上轉一段錄音 | 安卓版 或 網頁版 |
+            | 別人的電腦、無法安裝軟體 | **網頁版** |
+
+            > 網頁版與安卓版因為是瀏覽器 WASM 環境，無法使用原生 AVX 指令集，
+            > 速度比桌面版慢約 40 倍。功能完全相同，但**不建議用來處理長影片**。
 
             ### 系統需求
-            - Windows 10 / 11 x64（WebView2 通常已內建）
-            - 無 NVIDIA GPU 亦可使用（純 CPU 模式）；具 4GB+ 顯存之 NVIDIA GPU 可自動啟用加速
+            - **桌面版**：Windows 10 / 11 x64（WebView2 通常已內建）
+            - **安卓版**：Android 7.0 以上，建議 4 GB 以上記憶體
+            - **網頁版**：Chrome / Edge / Safari 任一現代瀏覽器
           releaseDraft: false
           prerelease: false

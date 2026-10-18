@@ -1,6 +1,6 @@
 [package]
 name = "taigi-asr-desktop"
-version = "1.0.0"
+version = "1.1.0"
 description = "台語語音自動轉錄桌面客戶端"
 authors = ["Taigi ASR Desktop contributors"]
 edition = "2021"

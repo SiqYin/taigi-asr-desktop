@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">台語語音轉錄</string>
+    <string name="saved_to_downloads">已儲存到「下載」：%1$s</string>
+</resources>

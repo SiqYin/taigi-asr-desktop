@@ -1,0 +1,130 @@
+name: web
+
+# 網頁版：建置 whisper.cpp WebAssembly，並把 web/ 部署到 GitHub Pages。
+# 觸發：推送到 main（web/ 有變更）、手動、或發版 tag。
+#
+# 注意：GitHub Actions 的 on.push 一旦寫了 paths，對「打 tag」的推送也會
+# 套用該過濾，發版時可能因此被跳過。所以 tag 觸發不放在這裡，
+# 而是由 workflow_dispatch 手動觸發，或依賴 main 分支的部署。
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+      - ".github/workflows/web.yml"
+  pull_request:
+    paths:
+      - "web/**"
+      - ".github/workflows/web.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  WHISPER_CPP_TAG: v1.9.5
+
+jobs:
+  # ------------------------------------------------------------------
+  # 1) 編譯 WASM（慢，可快取）
+  # ------------------------------------------------------------------
+  wasm:
+    name: Build whisper.cpp WASM
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache whisper.cpp source + wasm build
+        uses: actions/cache@v4
+        with:
+          path: |
+            .cache/whisper-wasm/whisper.cpp
+            .cache/whisper-wasm/build
+          key: wasm-${{ env.WHISPER_CPP_TAG }}-${{ hashFiles('web/wasm-src/**') }}
+          restore-keys: |
+            wasm-${{ env.WHISPER_CPP_TAG }}-
+
+      - name: Setup emsdk
+        uses: emscripten-core/setup-emsdk@v14
+        with:
+          version: latest
+
+      - name: Build WASM
+        run: |
+          chmod +x web/wasm-src/build-wasm.sh
+          bash web/wasm-src/build-wasm.sh
+
+      - name: Verify WASM output
+        run: |
+          set -euo pipefail
+          test -f web/wasm/main.js
+          test -f web/wasm/main.wasm
+          # 必須是 ES module 匯出，Worker 才 import 得到
+          grep -q "export default" web/wasm/main.js
+          # 必須含 pthread 支援，否則會退回單執行緒（慢一個數量級）
+          grep -q "PThread" web/wasm/main.js
+          echo "WASM 產物檢查通過（$(du -h web/wasm/main.wasm | cut -f1)）"
+
+      - name: Subtitle format parity
+        run: python3 tools/verify-subtitle-parity.py
+
+      - name: Upload wasm artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: whisper-wasm
+          path: web/wasm/
+          if-no-files-found: error
+
+  # ------------------------------------------------------------------
+  # 2) 打包靜態網站（WASM + 前端）並部署到 Pages
+  # ------------------------------------------------------------------
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: wasm
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download wasm artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: whisper-wasm
+          path: web/wasm
+
+      - name: Stage site
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+          # web/ 是自包含的靜態站（含圖示、coi-serviceworker.js、WASM）
+          cp -r web/. _site/
+          # GitHub Pages 用 Jekyll 會忽略底線開頭的路徑
+          touch _site/.nojekyll
+          # 移除不屬於網站內容的建置來源與測試截圖
+          rm -rf _site/wasm-src _site/screenshots
+          echo "--- 站點內容 ---"
+          find _site -maxdepth 2 -type f | sort | head -n 40
+          echo "--- WASM 產物 ---"
+          ls -lh _site/wasm/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

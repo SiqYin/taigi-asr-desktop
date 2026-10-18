@@ -1,0 +1,4 @@
+// 根專案的 Gradle 設定：只宣告外掛版本，實際套用在各模組。
+plugins {
+    id 'com.android.application' version '8.5.2' apply false
+}

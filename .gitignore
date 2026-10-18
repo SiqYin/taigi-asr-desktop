@@ -12,3 +12,22 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
+
+# 網頁版建置產物（由 CI 編譯，不進版控）
+web/wasm/
+web/screenshots/
+
+# 本機開發快取（模型、音訊、emsdk、建置中間檔）
+.cache/
+emsdk/
+
+# 安卓建置產物
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/app/src/main/assets/www/
+android/app/release.keystore
+
+# 測試產物
+tools/output/

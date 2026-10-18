@@ -1,0 +1,6 @@
+#!/bin/sh
+# Gradle wrapper 启动脚本（本地构建用；CI 由 gradle/actions/setup-gradle 提供）
+APP_HOME=$(cd "$(dirname "$0")" && pwd)
+CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
+JAVA_CMD=${JAVA_HOME:+$JAVA_HOME/bin/}java
+exec "$JAVA_CMD" -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"

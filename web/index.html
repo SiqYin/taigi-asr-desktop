@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5"
+    />
+    <title>台語語音轉錄 · 網頁版 Taigi ASR Web</title>
+    <meta
+      name="description"
+      content="在瀏覽器裡直接把台語影片／音訊轉成 SRT / VTT / TXT / JSON 字幕：Breeze-ASR-26 模型以 WebAssembly 在本機推理，不上傳任何檔案。"
+    />
+    <meta name="theme-color" content="#0f141b" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!--
+      GitHub Pages 無法自訂 HTTP 標頭，跨域隔離（SharedArrayBuffer，多執行緒 WASM）
+      由根目錄的 coi-serviceworker.js 以 Service Worker 注入 COOP/COEP 達成。
+      必須放在網站根目錄：Service Worker 的作用域由腳本路徑決定，放在子目錄
+      只會控制該子目錄，無法讓主頁面變成 cross-origin isolated。
+    -->
+    <script src="coi-serviceworker.js"></script>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; worker-src 'self' blob:; child-src 'self' blob:; connect-src 'self' blob: data: https:"
+    />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/32x32.png" />
+    <link rel="apple-touch-icon" href="icons/128x128@2x.png" />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">台</div>
+          <div class="brand-text">
+            <div class="brand-title">台語語音轉錄 <span class="brand-tag">網頁版</span></div>
+            <div class="brand-sub">Breeze-ASR-26 · 影片／音訊 → SRT / VTT / TXT / JSON</div>
+          </div>
+        </div>
+        <div class="badges">
+          <span id="engine-badge" class="badge" title="瀏覽器推理環境">引擎偵測中…</span>
+          <button
+            id="model-badge"
+            class="badge badge-model state-idle"
+            type="button"
+            title="提前把辨識模型載入記憶體"
+          >
+            模型：未載入（點此預載）
+          </button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <div class="col-main">
+          <section class="card options" aria-label="轉錄設定">
+            <div class="opt-group">
+              <span class="opt-label">輸出格式</span>
+              <div class="chip-row" id="format-chips">
+                <label class="chip-check"
+                  ><input type="checkbox" id="fmt-srt" value="srt" checked /><span>SRT</span></label
+                >
+                <label class="chip-check"
+                  ><input type="checkbox" id="fmt-vtt" value="vtt" /><span>VTT</span></label
+                >
+                <label class="chip-check"
+                  ><input type="checkbox" id="fmt-txt" value="txt" /><span>TXT</span></label
+                >
+                <label class="chip-check"
+                  ><input type="checkbox" id="fmt-json" value="json" /><span>JSON</span></label
+                >
+              </div>
+            </div>
+
+            <div class="opt-group">
+              <label class="opt-label" for="quality">辨識精細度</label>
+              <select id="quality">
+                <option value="1">1（最快，貪心解碼）</option>
+                <option value="3">3（均衡）</option>
+                <option value="5" selected>5（預設，同桌面端）</option>
+              </select>
+            </div>
+
+            <div class="opt-group">
+              <label class="opt-label" for="model-select">辨識模型</label>
+              <select id="model-select">
+                <option value="q4" selected>Q4_0 · 848 MB（建議）</option>
+                <option value="q5">Q5_0 · 1.03 GB（精度略高）</option>
+              </select>
+            </div>
+
+            <div class="opt-group opt-inline">
+              <label class="chip-check"
+                ><input type="checkbox" id="word-timestamps" /><span
+                  >逐字時間戳記（較慢）</span
+                ></label
+              >
+            </div>
+
+            <div class="opt-group opt-span">
+              <span class="opt-label">輸出位置</span>
+              <div class="out-row">
+                <span class="out-path muted" id="out-note"
+                  >由瀏覽器下載（可在瀏覽器設定變更下載資料夾）</span
+                >
+              </div>
+            </div>
+          </section>
+
+          <section class="card drop-card">
+            <div
+              class="dropzone"
+              id="dropzone"
+              tabindex="0"
+              role="button"
+              aria-label="選擇或拖入台語影片／音訊"
+            >
+              <div class="drop-icon" aria-hidden="true">⬓</div>
+              <div class="drop-text">把台語影片／音訊拖到這裡</div>
+              <div class="drop-sub">
+                <button class="btn btn-primary" type="button" id="pick-btn">選擇檔案…</button>
+              </div>
+              <div class="drop-hint muted">
+                mp4 / mkv / mov / mp3 / m4a / wav / flac / ogg / webm …（可多選）
+              </div>
+              <input
+                type="file"
+                id="file-input"
+                accept="audio/*,video/*,.mkv,.ts,.m4a,.flac,.opus,.aiff,.wma"
+                multiple
+                hidden
+              />
+            </div>
+            <div class="staged-head">
+              <span class="muted" id="staged-label">待處理</span>
+              <button class="btn btn-go" type="button" id="start-btn" disabled>
+                開始轉錄
+              </button>
+            </div>
+            <div class="staged" id="staged"></div>
+          </section>
+
+          <section class="card" id="jobs-card">
+            <div class="card-head">
+              <span>轉錄任務</span>
+              <button class="btn btn-ghost btn-sm" type="button" id="clear-done" hidden>
+                清除已完成
+              </button>
+            </div>
+            <div class="jobs" id="jobs"></div>
+          </section>
+        </div>
+
+        <aside class="col-side">
+          <section class="card preview-card" id="preview-card" hidden>
+            <div class="card-head">
+              <span>預覽與上字幕</span>
+              <button class="btn btn-ghost btn-sm" type="button" id="preview-close">
+                關閉
+              </button>
+            </div>
+            <div class="preview-body">
+              <video id="preview-video" controls playsinline preload="metadata"></video>
+              <div class="preview-meta muted" id="preview-meta"></div>
+              <div class="preview-actions" id="preview-actions"></div>
+              <div class="transcript" id="preview-transcript"></div>
+            </div>
+          </section>
+
+          <section class="card info-card">
+            <div class="card-head">使用說明</div>
+            <ol class="info-list">
+              <li>首次使用會下載台語模型（Q4_0 約 848 MB），只下載一次，之後存在瀏覽器快取。</li>
+              <li>所有推理都在你的裝置上完成，檔案不會上傳到任何伺服器。</li>
+              <li>建議使用 Chrome / Edge 桌機版；程式會自動啟用多執行緒加速。</li>
+              <li>手機與平板可用，但 850 MB 記憶體佔用較高，長檔建議在電腦上處理。</li>
+            </ol>
+            <div class="info-foot muted" id="capability-note"></div>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+    <div class="toasts" id="toasts" aria-live="polite"></div>
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>
